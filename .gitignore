@@ -1,0 +1,15 @@
+# Build artefacts
+bin/
+[Oo]bj/temporary/
+*.user
+
+# Rider/VS user state (already-tracked files in .vs/ and obj/ are kept for backwards compatibility)
+
+# Tooling
+*.suo
+*.cache
+*.swp
+
+# OS junk
+Thumbs.db
+.DS_Store
