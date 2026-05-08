@@ -5,8 +5,114 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Invincible_VS_Audio_Manager"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Invincible VS Audio Manager" Height="720" Width="1280"
+        WindowStartupLocation="CenterScreen">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
+        <!-- Top toolbar -->
+        <Border Grid.Row="0" Padding="8" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="LoadJsonButton" Content="Carregar JSON..." Padding="10,4" Click="LoadJson_Click"/>
+                <Button x:Name="LoadUcasButton" Content="Selecionar UCAS..." Padding="10,4" Margin="6,0,0,0" Click="LoadUcas_Click"/>
+                <Separator Margin="10,0" Width="1"/>
+                <Button x:Name="ApplyButton" Content="Salvar alteracoes no UCAS" Padding="10,4" Click="ApplyChanges_Click"/>
+                <Button x:Name="ClearAllButton" Content="Limpar todas substituicoes" Padding="10,4" Margin="6,0,0,0" Click="ClearAll_Click"/>
+                <TextBlock x:Name="HeaderInfo" Margin="20,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="#555"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Filter row -->
+        <Grid Grid.Row="1" Margin="8,8,8,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Filtro:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1" x:Name="FilterTextBox" TextChanged="Filter_TextChanged" VerticalContentAlignment="Center" Padding="4,2"/>
+            <CheckBox Grid.Column="2" x:Name="OnlyReplacedCheck" Content="Apenas substituidos" Margin="12,0,0,0" VerticalAlignment="Center" Click="Filter_Click"/>
+        </Grid>
+
+        <!-- DataGrid - virtualised so 5000+ rows do not freeze the UI -->
+        <DataGrid Grid.Row="2" Margin="8,4,8,4" x:Name="MappingsGrid"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  SelectionMode="Single"
+                  EnableRowVirtualization="True"
+                  EnableColumnVirtualization="True"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.ScrollUnit="Item"
+                  ScrollViewer.CanContentScroll="True"
+                  RowHeight="26">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="OK" Width="40">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontWeight="Bold" Foreground="#2A8F2A">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value=""/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Replaced}" Value="True">
+                                                <Setter Property="Text" Value="*"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Arquivo" Binding="{Binding Filename}" Width="2*"/>
+                <DataGridTextColumn Header="Pasta" Binding="{Binding RelativePath}" Width="3*"/>
+                <DataGridTextColumn Header="Tamanho (bytes)" Binding="{Binding Size, StringFormat=N0}" Width="120"/>
+                <DataGridTextColumn Header="Offset Inicio" Binding="{Binding OffsetStartHex}" Width="120"/>
+                <DataGridTextColumn Header="Offset Fim" Binding="{Binding OffsetEndHex}" Width="120"/>
+                <DataGridTextColumn Header="Substituto (.wem)" Binding="{Binding ReplacementName}" Width="2*"/>
+                <DataGridTemplateColumn Header="Acoes" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Substituir..." Click="Replace_Click" Tag="{Binding}" Padding="6,2"/>
+                                <Button Content="Limpar" Click="ClearReplacement_Click" Tag="{Binding}" Padding="6,2" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Replaced}" Value="True">
+                            <Setter Property="Background" Value="#E8F5E8"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+
+        <!-- Status bar -->
+        <Border Grid.Row="3" Padding="8" Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0" VerticalAlignment="Center" FontSize="12"/>
+                <ProgressBar Grid.Column="1" x:Name="ProgressBarControl" Width="240" Height="18" Visibility="Collapsed"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
