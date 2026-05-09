@@ -193,6 +193,233 @@ namespace Invincible_VS_Audio_Manager
             UpdateStatus();
         }
 
+        private async void Extract_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy) return;
+            if (sender is not Button btn || btn.Tag is not MappingEntry entry) return;
+            if (!EnsureUcasReady()) return;
+
+            var defaultName = UcasExtractionService.ChangeExtensionToWem(entry.Filename);
+            var dlg = new SaveFileDialog
+            {
+                Filter = "Arquivos WEM (*.wem)|*.wem|Todos os arquivos|*.*",
+                FileName = defaultName,
+                Title = $"Extrair {entry.Filename} como .wem",
+                AddExtension = true,
+                DefaultExt = ".wem",
+                OverwritePrompt = true
+            };
+            if (dlg.ShowDialog(this) != true) return;
+
+            try
+            {
+                SetBusy(true);
+                ProgressBarControl.Visibility = Visibility.Visible;
+                ProgressBarControl.IsIndeterminate = true;
+                StatusText.Text = $"Extraindo {entry.Filename}...";
+
+                await UcasExtractionService.ExtractAsync(_ucasPath!, entry, dlg.FileName, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                MessageBox.Show(this,
+                    $"Extraido para:\n{dlg.FileName}",
+                    "Extracao concluida", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Erro ao extrair:\n{ex.Message}",
+                    "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                ProgressBarControl.IsIndeterminate = false;
+                ProgressBarControl.Visibility = Visibility.Collapsed;
+                SetBusy(false);
+                UpdateStatus();
+            }
+        }
+
+        private async void BulkExtract_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy) return;
+            if (!EnsureUcasReady()) return;
+
+            var visible = GetVisibleEntries();
+            if (visible.Count == 0)
+            {
+                MessageBox.Show(this, "Nenhuma entrada visivel para extrair (ajuste o filtro).",
+                    "Atencao", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string folder;
+            using (var fbd = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = $"Pasta de destino para extrair {visible.Count:N0} arquivo(s) .wem",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = true
+            })
+            {
+                if (fbd.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                folder = fbd.SelectedPath;
+            }
+
+            var preserve = MessageBox.Show(this,
+                "Preservar a estrutura de pastas original (VO_Character/...) dentro da pasta de destino?\n\n" +
+                "Sim = recria as subpastas\nNao = grava todos os .wem direto na pasta escolhida",
+                "Estrutura de pastas", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (preserve == MessageBoxResult.Cancel) return;
+            var preserveStructure = preserve == MessageBoxResult.Yes;
+
+            try
+            {
+                SetBusy(true);
+                ProgressBarControl.Visibility = Visibility.Visible;
+                ProgressBarControl.IsIndeterminate = false;
+                ProgressBarControl.Minimum = 0;
+                ProgressBarControl.Maximum = visible.Count;
+                ProgressBarControl.Value = 0;
+
+                var prog = new Progress<ExtractionProgress>(p =>
+                {
+                    ProgressBarControl.Value = p.Done;
+                    StatusText.Text = $"Extraindo: {p.Done}/{p.Total} - {p.Current}";
+                });
+
+                var result = await UcasExtractionService.ExtractBatchAsync(
+                    _ucasPath!, visible, folder, preserveStructure, prog, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                var msg = $"Extracao concluida.\nSucesso: {result.Succeeded}\nFalhas: {result.Failed}\n\nDestino:\n{folder}";
+                if (result.Errors.Count > 0)
+                {
+                    msg += "\n\nPrimeiros erros:\n" + string.Join("\n", result.Errors.Take(15));
+                    if (result.Errors.Count > 15)
+                        msg += $"\n... ({result.Errors.Count - 15} omitidos)";
+                }
+                MessageBox.Show(this, msg, "Resultado",
+                    MessageBoxButton.OK,
+                    result.Failed > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Erro ao extrair em lote:\n{ex.Message}",
+                    "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                ProgressBarControl.Visibility = Visibility.Collapsed;
+                SetBusy(false);
+                UpdateStatus();
+            }
+        }
+
+        private void BulkSubstitute_Click(object sender, RoutedEventArgs e)
+        {
+            if (_busy) return;
+            if (_entries.Count == 0)
+            {
+                MessageBox.Show(this, "Carregue o JSON primeiro.", "Atencao",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var visible = GetVisibleEntries();
+            if (visible.Count == 0)
+            {
+                MessageBox.Show(this, "Nenhuma entrada visivel para casar (ajuste o filtro).",
+                    "Atencao", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            string folder;
+            using (var fbd = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Pasta com arquivos .wem para casar por nome",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = false
+            })
+            {
+                if (fbd.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                folder = fbd.SelectedPath;
+            }
+
+            var overwrite = MessageBox.Show(this,
+                "Sobrescrever substituicoes ja marcadas?\n\n" +
+                "Sim = qualquer entrada com correspondencia tera o caminho atualizado\n" +
+                "Nao = entradas ja marcadas serao mantidas como estao",
+                "Substituir em lote", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (overwrite == MessageBoxResult.Cancel) return;
+            var overwriteExisting = overwrite == MessageBoxResult.Yes;
+
+            try
+            {
+                SetBusy(true);
+                StatusText.Text = $"Indexando .wem em {folder}...";
+
+                var result = BulkSubstitutionService.AssignByName(visible, folder, overwriteExisting);
+
+                var msg =
+                    $"Casamento concluido.\n" +
+                    $"Arquivos .wem indexados: {result.FilesIndexed:N0}\n" +
+                    $"Entradas verificadas: {result.Scanned:N0}\n" +
+                    $"Casados: {result.Matched:N0}\n" +
+                    $"Sem correspondencia: {result.NotFound:N0}";
+                if (result.Duplicates.Count > 0)
+                {
+                    msg += $"\n\nNomes duplicados ignorados: {result.Duplicates.Count:N0}";
+                }
+                if (result.NotFound > 0)
+                {
+                    msg += "\n\nPrimeiros sem correspondencia:\n" +
+                           string.Join("\n", result.NotFoundNames.Take(15));
+                    if (result.NotFoundNames.Count > 15)
+                        msg += $"\n... ({result.NotFoundNames.Count - 15} omitidos)";
+                }
+                MessageBox.Show(this, msg, "Resultado",
+                    MessageBoxButton.OK,
+                    result.Matched > 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Erro ao substituir em lote:\n{ex.Message}",
+                    "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetBusy(false);
+                UpdateStatus();
+            }
+        }
+
+        private List<MappingEntry> GetVisibleEntries()
+        {
+            if (_entriesView == null) return new List<MappingEntry>(_entries);
+            var list = new List<MappingEntry>();
+            foreach (var item in _entriesView)
+            {
+                if (item is MappingEntry entry) list.Add(entry);
+            }
+            return list;
+        }
+
+        private bool EnsureUcasReady()
+        {
+            if (string.IsNullOrEmpty(_ucasPath))
+            {
+                MessageBox.Show(this, "Selecione o arquivo .ucas primeiro.", "Atencao",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+            if (!File.Exists(_ucasPath))
+            {
+                MessageBox.Show(this, $"Arquivo .ucas nao encontrado:\n{_ucasPath}", "Erro",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+            return true;
+        }
+
         private void ClearReplacement_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not MappingEntry entry) return;
@@ -330,6 +557,8 @@ namespace Invincible_VS_Audio_Manager
             LoadUcasButton.IsEnabled = !busy;
             ApplyButton.IsEnabled = !busy;
             ClearAllButton.IsEnabled = !busy;
+            BulkSubstituteButton.IsEnabled = !busy;
+            BulkExtractButton.IsEnabled = !busy;
             MappingsGrid.IsEnabled = !busy;
         }
 

@@ -21,6 +21,9 @@
                 <Button x:Name="LoadJsonButton" Content="Carregar JSON..." Padding="10,4" Click="LoadJson_Click"/>
                 <Button x:Name="LoadUcasButton" Content="Selecionar UCAS..." Padding="10,4" Margin="6,0,0,0" Click="LoadUcas_Click"/>
                 <Separator Margin="10,0" Width="1"/>
+                <Button x:Name="BulkSubstituteButton" Content="Substituir em lote..." Padding="10,4" Click="BulkSubstitute_Click"/>
+                <Button x:Name="BulkExtractButton" Content="Extrair em lote..." Padding="10,4" Margin="6,0,0,0" Click="BulkExtract_Click"/>
+                <Separator Margin="10,0" Width="1"/>
                 <Button x:Name="ApplyButton" Content="Salvar alteracoes no UCAS" Padding="10,4" Click="ApplyChanges_Click"/>
                 <Button x:Name="ClearAllButton" Content="Limpar todas substituicoes" Padding="10,4" Margin="6,0,0,0" Click="ClearAll_Click"/>
                 <TextBlock x:Name="HeaderInfo" Margin="20,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="#555"/>
@@ -81,11 +84,12 @@
                 <DataGridTextColumn Header="Offset Inicio" Binding="{Binding OffsetStartHex}" Width="120"/>
                 <DataGridTextColumn Header="Offset Fim" Binding="{Binding OffsetEndHex}" Width="120"/>
                 <DataGridTextColumn Header="Substituto (.wem)" Binding="{Binding ReplacementName}" Width="2*"/>
-                <DataGridTemplateColumn Header="Acoes" Width="200">
+                <DataGridTemplateColumn Header="Acoes" Width="290">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Content="Substituir..." Click="Replace_Click" Tag="{Binding}" Padding="6,2"/>
+                                <Button Content="Extrair..." Click="Extract_Click" Tag="{Binding}" Padding="6,2" Margin="4,0,0,0"/>
                                 <Button Content="Limpar" Click="ClearReplacement_Click" Tag="{Binding}" Padding="6,2" Margin="4,0,0,0"/>
                             </StackPanel>
                         </DataTemplate>
