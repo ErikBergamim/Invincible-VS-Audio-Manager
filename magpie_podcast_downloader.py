@@ -165,11 +165,12 @@ class MagpieDownloaderApp:
 
     # ------------------------------------------------------------------ core
     def _worker(self):
+        error_msg = None
         try:
             self._run_pipeline()
         except Exception as exc:
             self._log(f"ERRO: {exc}")
-            self._set_status(f"Erro: {exc}")
+            error_msg = f"Erro: {exc}"
         finally:
             if self.driver:
                 try:
@@ -177,7 +178,7 @@ class MagpieDownloaderApp:
                 except Exception:
                     pass
                 self.driver = None
-            self._finish()
+            self._finish(error_msg or "Concluído.")
 
     def _run_pipeline(self):
         out_dir = self.out_var.get().strip()
@@ -411,7 +412,7 @@ class MagpieDownloaderApp:
             safe_name = re.sub(r'[\\/*?:"<>|]', '_', title).strip()
             if not safe_name:
                 safe_name = f"episodio_{idx + 1:03d}"
-            filename = f"{safe_name}.mp3"
+            filename = f"{idx + 1:03d}_{safe_name}.mp3"
             filepath = os.path.join(out_dir, filename)
 
             # Skip if already downloaded
